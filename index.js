@@ -11,7 +11,7 @@ var polygons;
 const matchExpression = [];
 
 map.on('load', function () {
-	var gridSize = 0.01;
+	var gridSize = 0.005;
 	var bounds = map.getBounds();
 	var nw = bounds.getNorthWest();
 	var se = bounds.getSouthEast();
@@ -37,7 +37,7 @@ map.on('load', function () {
 									id: i * rows + j, // Уникальный идентификатор полигона
 									avarageNoise: Number(0),
 									procentsNoise: Number(0),
-									color: "rgb(0, 255, 0)"
+									color: "rgb(0, 256, 0)"
 							}
 					};
 					gridPolygons.push(polygon);
@@ -61,7 +61,7 @@ map.on('load', function () {
 				layout: {},
 				paint: {
 						'fill-color': ['get', 'color'],
-						'fill-opacity': 0.2
+						'fill-opacity': 0.1
 			}
 	});
 
@@ -199,7 +199,7 @@ async function updateGridNoiseLevels() {
 			layout: {},
 			paint: {
 					'fill-color': ['get', 'color'],
-					'fill-opacity': 0.2
+					'fill-opacity': 0.1
 		}
 	});
 
