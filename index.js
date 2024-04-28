@@ -2,8 +2,8 @@ mapboxgl.accessToken = 'pk.eyJ1Ijoic2ZhMjM0IiwiYSI6ImNsdmhyOGZkNTAxMWgya21rMzFtZ
 var map = new mapboxgl.Map({
 	container: 'map',
 	style: 'mapbox://styles/mapbox/streets-v11',
-	center: [104.2807, 52.2864],
-	zoom: 8
+	center: [104.2660688, 52.252361],
+	zoom: 10
 });
 
 var noises;
@@ -179,9 +179,10 @@ async function updateGridNoiseLevels() {
 
 	for (const data of polygons) {
 		const red = Math.round(data.properties.procentsNoise * 255);
+		const green = 255 - red;
 		var color = "";
 		if (!isNaN(data.properties.procentsNoise)){
-			color =  `rgb(${red}, 0, 0)`;
+			color =  `rgb(${red}, ${green}, 0)`;
 			data.properties.color = color;
 		}
 	}	
@@ -204,6 +205,8 @@ async function updateGridNoiseLevels() {
 	});
 
 	map.removeLayer('grid');
+
+	map.setZoom(14);
 }
 
 async function fetchData() {
