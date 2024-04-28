@@ -8,6 +8,7 @@ var map = new mapboxgl.Map({
 
 var noises;
 var polygons;
+const matchExpression = ['match', ['get', 'id']];
 
 map.on('load', function () {
 	var gridSize = 0.01;
@@ -33,13 +34,18 @@ map.on('load', function () {
 									]]
 							},
 							properties: {
-									id: i * rows + j // Уникальный идентификатор полигона
+									id: i * rows + j, // Уникальный идентификатор полигона
+									avarageNoise: Number(0),
+									procentsNoise: Number(0)
 							}
 					};
 					gridPolygons.push(polygon);
 			}
 			polygons = gridPolygons;
 	}
+
+	fetchData();
+
 
 	map.addLayer({
 			id: 'grid',
@@ -53,7 +59,7 @@ map.on('load', function () {
 			},
 			layout: {},
 			paint: {
-					'fill-color': '#088',
+					'fill-color': '#F80',
 					'fill-opacity': 0.2
 			}
 	});
@@ -61,10 +67,10 @@ map.on('load', function () {
 	map.on('click', 'grid', function (e) {
 			var coordinates = e.lngLat;
 			var featureId = e.features[0].properties.id;
-			var popupContent = '<h3>Координаты полигона:</h3><p>' + coordinates.lng + ', ' + coordinates.lat + '</p>';
+			var popupContent = '<h3>Координаты полигона:</h3><p>' + coordinates.lng + ', ' + coordinates.lat + '</p><div id="avarageNoise"></div>';
 			new mapboxgl.Popup()
 					.setLngLat(coordinates)
-					.setHTML('<div class="chart">' + popupContent + '<canvas id="lineChart" style="min-height: 25px; height: 25px; max-height: 25px; max-width: 100%;"></canvas></div>')
+					.setHTML('<div class="chart">' + popupContent + '<canvas id="lineChart" style="min-height: 250px; height: 250px; max-height: 250px; max-width: 100%;"></canvas></div>')
 					.addTo(map);
 			createChart(coordinates);
 	});
@@ -81,10 +87,14 @@ map.on('load', function () {
 async function createChart(coordinates) {
 	var label = [];
 	var dat = [];
+	var avarageNoise = 0;
+	var proc = 0;
 
 	polygons.forEach(data =>{
 		if (coordinates.lng >= data.geometry.coordinates[0][0][0] && coordinates.lng <= data.geometry.coordinates[0][1][0]) {
 			if (coordinates.lat >= data.geometry.coordinates[0][2][1] && coordinates.lat <= data.geometry.coordinates[0][0][1]) {
+				avarageNoise = data.properties.avarageNoise;
+				proc = data.properties.procentsNoise;
 				noises.forEach(data1 => {
 					if (data1['longitude'] >= data.geometry.coordinates[0][0][0] && data1['longitude'] <= data.geometry.coordinates[0][1][0]) {
 						if (data1['latitude'] >= data.geometry.coordinates[0][2][1] && data1['latitude'] <= data.geometry.coordinates[0][0][1]) {
@@ -109,17 +119,54 @@ async function createChart(coordinates) {
         }]
       },
     });
+
+	document.getElementById('avarageNoise').innerHTML = '<p>Средний шум: ' + avarageNoise + '</p>';
 }
 
 async function updateGridNoiseLevels() {
-	//polygons.forEach(data => {
-	//	noises.forEach(data1 => {
-	//		if (data.coordinates.lng == data1['longitude'] && data.coordinates.lat == data1['latitude']) {
-	//			data.type = ''
-	//		}
-	//	});
-	//});
-	console.log(polygons[0]);
+	var sumNoise = Number(0);
+	var count = Number(0);
+	var maxD = 0;
+	var minD = 100;
+
+	noises.forEach(data => {
+		if (data['decibels'] > maxD) {
+			maxD = data['decibels'];
+		}
+		if (data['decibels'] < minD) {
+			minD = data['decibels'];
+		}
+	});
+
+	maxD -= minD;
+	maxD /= 10;
+
+	polygons.forEach(data => {
+		noises.forEach(data1 => {
+			if (data1['longitude'] >= data.geometry.coordinates[0][0][0] && data1['longitude'] <= data.geometry.coordinates[0][1][0]) {
+				if (data1['latitude'] >= data.geometry.coordinates[0][2][1] && data1['latitude'] <= data.geometry.coordinates[0][0][1]) {
+					sumNoise += data1['decibels'];
+					count += 1;
+				}
+			}
+		});
+		data.properties.avarageNoise = Number(sumNoise / count);
+		data.properties.procentsNoise = Number(data.properties.avarageNoise / maxD);
+		sumNoise = Number(0);
+		count = Number(0);
+	});
+
+	for (const row of polygons) {
+		const red = row.properties.procentsNoise * 255;
+		const color = `rgb(${red}, 0, 0)`;
+
+		matchExpression.push(row.properties.id, color);
+	}	
+
+	this.map.setFilter(
+		'grid',
+		['match', 'id']
+	)
 }
 
 async function fetchData() {
@@ -138,5 +185,3 @@ async function fetchData() {
 	  	console.error('Error fetching data:', error);
 	}
 }
-
-fetchData();
