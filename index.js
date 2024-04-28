@@ -178,7 +178,6 @@ async function updateGridNoiseLevels() {
 	});
 
 	for (const data of polygons) {
-		// console.log(data.properties);
 		const red = Math.round(data.properties.procentsNoise * 255);
 		var color = "";
 		if (!isNaN(data.properties.procentsNoise)){
@@ -209,7 +208,7 @@ async function updateGridNoiseLevels() {
 
 async function fetchData() {
 	try {
-	  	const response = await fetch('https://05c1-92-51-45-202.ngrok-free.app/api/noises/?format=json', {
+	  	const response = await fetch('https://2106-92-51-45-202.ngrok-free.app/api/noises/?format=json', {
     		method: "get",
     		headers: new Headers({
      		"ngrok-skip-browser-warning": "69420",
