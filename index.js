@@ -8,7 +8,7 @@ var map = new mapboxgl.Map({
 
 var noises;
 var polygons;
-const matchExpression = ['match', ['get', 'id']];
+const matchExpression = [];
 
 map.on('load', function () {
 	var gridSize = 0.01;
@@ -36,7 +36,8 @@ map.on('load', function () {
 							properties: {
 									id: i * rows + j, // Уникальный идентификатор полигона
 									avarageNoise: Number(0),
-									procentsNoise: Number(0)
+									procentsNoise: Number(0),
+									color: "rgb(0, 255, 0)"
 							}
 					};
 					gridPolygons.push(polygon);
@@ -51,16 +52,16 @@ map.on('load', function () {
 			id: 'grid',
 			type: 'fill',
 			source: {
-					type: 'geojson',
-					data: {
-							type: 'FeatureCollection',
-							features: gridPolygons
-					}
+				type: 'geojson',
+				data: {
+						type: 'FeatureCollection',
+						features: gridPolygons
+				}
 			},
-			layout: {},
-			paint: {
-					'fill-color': '#F80',
-					'fill-opacity': 0.2
+				layout: {},
+				paint: {
+						'fill-color': ['get', 'color'],
+						'fill-opacity': 0.2
 			}
 	});
 
@@ -75,11 +76,30 @@ map.on('load', function () {
 			createChart(coordinates);
 	});
 
+	map.on('click', 'gridLayer', function (e) {
+		var coordinates = e.lngLat;
+		var featureId = e.features[0].properties.id;
+		var popupContent = '<h3>Координаты полигона:</h3><p>' + coordinates.lng + ', ' + coordinates.lat + '</p><div id="avarageNoise"></div>';
+		new mapboxgl.Popup()
+				.setLngLat(coordinates)
+				.setHTML('<div class="chart">' + popupContent + '<canvas id="lineChart" style="min-height: 250px; height: 250px; max-height: 250px; max-width: 100%;"></canvas></div>')
+				.addTo(map);
+		createChart(coordinates);
+});
+
 	map.on('mouseenter', 'grid', function () {
 			map.getCanvas().style.cursor = 'pointer';
 	});
 
 	map.on('mouseleave', 'grid', function () {
+			map.getCanvas().style.cursor = '';
+	});
+
+	map.on('mouseenter', 'gridLayer', function () {
+			map.getCanvas().style.cursor = 'pointer';
+	});
+
+	map.on('mouseleave', 'gridLayer', function () {
 			map.getCanvas().style.cursor = '';
 	});
 });
@@ -126,20 +146,8 @@ async function createChart(coordinates) {
 async function updateGridNoiseLevels() {
 	var sumNoise = Number(0);
 	var count = Number(0);
-	var maxD = 0;
-	var minD = 100;
-
-	noises.forEach(data => {
-		if (data['decibels'] > maxD) {
-			maxD = data['decibels'];
-		}
-		if (data['decibels'] < minD) {
-			minD = data['decibels'];
-		}
-	});
-
-	maxD -= minD;
-	maxD /= 10;
+	var maxAv = 0;
+	var minAv = 100;
 
 	polygons.forEach(data => {
 		noises.forEach(data1 => {
@@ -151,22 +159,52 @@ async function updateGridNoiseLevels() {
 			}
 		});
 		data.properties.avarageNoise = Number(sumNoise / count);
-		data.properties.procentsNoise = Number(data.properties.avarageNoise / maxD);
+		if (!isNaN(data.properties.avarageNoise)) {
+			console.log(data.properties.avarageNoise);	
+			minAv = Math.min(minAv, data.properties.avarageNoise);
+			maxAv = Math.max(maxAv, data.properties.avarageNoise);
+		}
 		sumNoise = Number(0);
 		count = Number(0);
 	});
+	console.log(minAv);
+	console.log(maxAv);
+	maxAv -= minAv;
 
-	for (const row of polygons) {
-		const red = row.properties.procentsNoise * 255;
-		const color = `rgb(${red}, 0, 0)`;
+	polygons.forEach(data => {
+		data.properties.procentsNoise = Number((data.properties.avarageNoise - minAv) / maxAv);
+		if (data.properties.avarageNoise >= 0)
+			console.log(data.properties)
+	});
 
-		matchExpression.push(row.properties.id, color);
+	for (const data of polygons) {
+		// console.log(data.properties);
+		const red = Math.round(data.properties.procentsNoise * 255);
+		var color = "";
+		if (!isNaN(data.properties.procentsNoise)){
+			color =  `rgb(${red}, 0, 0)`;
+			data.properties.color = color;
+		}
 	}	
 
-	this.map.setFilter(
-		'grid',
-		['match', 'id']
-	)
+	map.addLayer({
+		id: 'gridLayer',
+		type: 'fill',
+		source: {
+			type: 'geojson',
+			data: {
+					type: 'FeatureCollection',
+					features: polygons
+			}
+		},
+			layout: {},
+			paint: {
+					'fill-color': ['get', 'color'],
+					'fill-opacity': 0.2
+		}
+	});
+
+	map.removeLayer('grid');
 }
 
 async function fetchData() {
@@ -179,7 +217,7 @@ async function fetchData() {
    		});
 	  	const data = await response.json();
 	  	noises = data;
-	  	console.log('Received data:', data);
+	  	console.log('Received data:', noises);
 		updateGridNoiseLevels();
 	} catch (error) {
 	  	console.error('Error fetching data:', error);
